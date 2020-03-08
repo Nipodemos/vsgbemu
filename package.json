@@ -1,0 +1,23 @@
+{
+  "name": "vsgbemu",
+  "version": "0.1.0",
+  "description": "A gameboy emulator on browser",
+  "main": "emulator.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vitorsilverio/vsgbemu.git"
+  },
+  "author": "Vítor Silvério Rodrigues",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vitorsilverio/vsgbemu/issues"
+  },
+  "homepage": "https://github.com/vitorsilverio/vsgbemu#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
