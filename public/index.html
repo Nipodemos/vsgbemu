@@ -3,8 +3,31 @@
     <head>
         <meta charset="utf-8">
         <title>vsgbemu</title>
+        <link href="css/style.css" rel="stylesheet">
     </head>
     <body>
-        <canvas id="screen"></canvas>
+        <canvas id="screen" width="160" height="144"></canvas>
+        <button>Load ROM</button>
+        <button>Start</button>
+        <script type="module">
+            import createKeyboarListener from './js/keyboard-listener.js'
+            import renderScreen from './js/render-screen.js'
+            import createCpu from './js/cpu.js'
+            import createPpu from './js/ppu.js'
+            
+
+            const keyboardListener = createKeyboarListener(document)
+            const cpu = createCpu()
+            const ppu = createPpu()
+            
+            const screen = document.getElementById('screen')
+            renderScreen(screen, ppu, requestAnimationFrame)
+
+            while (true) {
+                cpu.tick()
+                ppu.tick()
+            }
+
+        </script>
     </body>
 </html>
