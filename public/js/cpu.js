@@ -38,7 +38,47 @@ export default function createCPU(){
         set hl(hl) {
             this.h = hl >> 8
             this.l = hl & 0xff
-        }
+        },
+        get flagZ() {
+            return this.f & 0b10000000
+        },
+        set flagZ(v){
+            if(v) {
+                this.f |= 0b10000000
+            } else {
+                this.f &= 0b01111111
+            }
+        },
+        get flagN() {
+            return this.f & 0b01000000
+        },
+        set flagN(v){
+            if(v) {
+                this.f |= 0b01000000
+            } else {
+                this.f &= 0b10111111
+            }
+        },
+        get flagH() {
+            return this.f & 0b00100000
+        },
+        set flagH(v){
+            if(v) {
+                this.f |= 0b00100000
+            } else {
+                this.f &= 0b11011111
+            }
+        },
+        get flagC() {
+            return this.f & 0b00010000
+        },
+        set flagC(v){
+            if(v) {
+                this.f |= 0b00010000
+            } else {
+                this.f &= 0b11101111
+            }
+        },
     }
 
     let ime = true

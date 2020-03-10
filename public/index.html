@@ -13,7 +13,7 @@
             import createKeyboarListener from './js/keyboard-listener.js'
             import renderScreen from './js/render-screen.js'
             import createCpu from './js/cpu.js'
-            import createPpu from './js/ppu.js'
+            import createPpu from './js/video-driver.js'
             
 
             const keyboardListener = createKeyboarListener(document)
@@ -23,10 +23,6 @@
             const screen = document.getElementById('screen')
             renderScreen(screen, ppu, requestAnimationFrame)
 
-            while (true) {
-                cpu.tick()
-                ppu.tick()
-            }
 
         </script>
     </body>
