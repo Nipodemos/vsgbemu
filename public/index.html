@@ -7,23 +7,47 @@
     </head>
     <body>
         <canvas id="screen" width="160" height="144"></canvas>
-        <button>Load ROM</button>
-        <button>Start</button>
+        <input type="file" id="rom">
+        <button id='start'>Start</button>
         <script type="module">
             import createKeyboarListener from './js/keyboard-listener.js'
             import renderScreen from './js/render-screen.js'
             import createCpu from './js/cpu.js'
             import createPpu from './js/video-driver.js'
+            import createBus from './js/bus.js'
+            import loadRom from './js/load-rom.js'
+            import readFileAsync from './js/read-file-async.js'
+
+
+            function startScreen(ppu) {
+                const screen = document.getElementById('screen')
+                renderScreen(screen, ppu, requestAnimationFrame)
+            }
+
+            async function start() {
+                const bus = createBus()
+
+                const keyboardListener = createKeyboarListener(document)
+                
+                const cpu = await createCpu(bus)
+                const ppu = createPpu()
+                
+                
+                await bus.register(loadRom(await readFileAsync(document.getElementById('rom').files[0])))
+                
+                startScreen(ppu)
+                
+
+                for( ;; ){
+                    cpu.tick()
+                }
+            }
+
+            document.getElementById('start').addEventListener('click',start)
+            
             
 
-            const keyboardListener = createKeyboarListener(document)
-            const cpu = createCpu()
-            const ppu = createPpu()
             
-            const screen = document.getElementById('screen')
-            renderScreen(screen, ppu, requestAnimationFrame)
-
-
         </script>
     </body>
 </html>
