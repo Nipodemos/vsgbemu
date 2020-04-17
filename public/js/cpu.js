@@ -6,19 +6,18 @@ export default async function createCPU(pbus){
 
     const bus = pbus;
 
-    function getSourceOperandValue(instruction){
-        const operand = instruction.opcode.operands[instruction.opcode.operands.length-1]
+    function getSourceValue(operand, parameters){
         if (operand.immediate){
             if(Object.keys(registers).includes(operand.name)){
                 return registers[operand.name]
             }else{
                 switch(operand.name) {
                     case 'd8':
-                        return instruction.parameters[0]
+                        return parameters[0]
                     case 'd16':
-                        return (instruction.parameters[0] & (instruction.parameters[1] << 8))
+                        return (parameters[0] | (parameters[1] << 8))
                     case 'r8':
-                        return instruction.parameters[0] > 127 ? (instruction.parameters[0] & 0x7f) - 0x80 : instruction.parameters[0]
+                        return parameters[0] > 127 ? (parameters[0] & 0x7f) - 0x80 : parameters[0]
                 }
             }
             
@@ -35,79 +34,121 @@ export default async function createCPU(pbus){
             }else{
                 switch(operand.name) {
                     case 'a8':
-                        return bus.read(instruction.parameters[0] + 0xff00)
+                        return bus.read(parameters[0] + 0xff00)
                     case 'a16':
-                        return bus.read(instruction.parameters[0] & (instruction.parameters[1] << 8))
+                        return bus.read(parameters[0] | (parameters[1] << 8))
                 }
             }
         }
-        return source_value
+    }
+
+    function setSourceValue(operand, value){
+        if(operand.immediate){
+            registers[operand.name] = value
+        } else {
+            let address = registers[operand.name]
+            if(operand.increment){
+                registers[operand.name]++
+            }
+            if(operand.decrement){
+                registers[operand.name]--
+            }
+            bus.write(address,value)
+        }
+    }
+
+    function setDefaultFlags(flags) {
+        let { Z, N, H, C } = flags
+        if (Z == '0'){
+            registers.flagZ = false
+        }
+        if (Z == '1'){
+            registers.flagZ = true
+        }
+        if (N == '0'){
+            registers.flagN = false
+        }
+        if (N == '1'){
+            registers.flagN = true
+        }
+        if (H == '0'){
+            registers.flagH= false
+        }
+        if (H == '1'){
+            registers.flagH = true
+        }
+        if (C == '0'){
+            registers.flagC= false
+        }
+        if (C== '1'){
+            registers.flagC = true
+        }
     }
 
     const instructions = {
         'LD': (instruction) => {
-            // Source
-            let source_value = getSourceOperandValue(instruction)
-            const destOperand = instruction.opcode.operands[0]
-            if(destOperand.immediate){
-                registers[destOperand.name] = source_value
-            }else{
-                let address = registers[destOperand.name]
-                if(destOperand.increment){
-                    registers[destOperand.name]++
-                }
-                if(destOperand.decrement){
-                    registers[destOperand.name]--
-                }
-                bus.write(address,source_value)
-
-            }
+            let source_value = getSourceValue(instruction.opcode.operands[1],instruction.parameters)
+            setSourceValue(instruction.opcode.operands[0], source_value)
             return instruction.opcode.cycles[0]
         },
         'AND': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A &= source_value 
-            //TODO flags
+            setDefaultFlags(instruction.opcode.flags)
+            registers.flagZ = ( registers.A == 0 )
             return instruction.opcode.cycles[0]
         },
         'OR': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A |= source_value 
-            //TODO flags
+            setDefaultFlags(instruction.opcode.flags)
+            registers.flagZ = ( registers.A == 0 )
             return instruction.opcode.cycles[0]
         },
         'XOR': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A ^= source_value 
-            //TODO flags
+            setDefaultFlags(instruction.opcode.flags)
+            registers.flagZ = ( registers.A == 0 )
             return instruction.opcode.cycles[0]
         },
+        'CP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'ADD': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A += source_value 
+            setDefaultFlags(instruction.opcode.flags)
             //TODO flags
             return instruction.opcode.cycles[0]
         },
         'ADC': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A += source_value 
+            setDefaultFlags(instruction.opcode.flags)
             //TODO flags
             return instruction.opcode.cycles[0]
         },
         'SUB': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A += source_value 
+            setDefaultFlags(instruction.opcode.flags)
             //TODO flags
             return instruction.opcode.cycles[0]
         },
         'SBC': (instruction) => {
-            let source_value = getSourceOperandValue(instruction)
+            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
             registers.A += source_value 
+            setDefaultFlags(instruction.opcode.flags)
             //TODO flags
             return instruction.opcode.cycles[0]
         },
-        'EI': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'DI': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'EI': (instruction) => { 
+            ime = true
+            return instruction.opcode.cycles[0]
+        },
+        'DI': (instruction) => { 
+            ime = false
+            return instruction.opcode.cycles[0]
+        },
         'LDH': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'DAA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'SCF': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
@@ -118,10 +159,16 @@ export default async function createCPU(pbus){
         'CALL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'RET': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'RETI': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'CP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RST': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'RST': (instruction) => { 
+            let pc = parceInst(instruction.opcode.operands[0].slice(0,-1))
+            registers.pc = pc
+            return instruction.opcode.cycles[0]
+        },
         'NOP': (instruction) => { return instruction.opcode.cycles[0]},
-        'STOP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'STOP': (instruction) => { 
+            stop = true
+            return instruction.opcode.cycles[0]
+        },
         'HALT': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'INC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'DEC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
@@ -231,12 +278,11 @@ export default async function createCPU(pbus){
     let waiting_ticks = 0
 
     function tick() {
-        //if (! --waiting_ticks){
+        if ( ! waiting_ticks-- ){
             const instruction = fetchInstruction()
             console.log(instruction)
-            instructions[instruction.opcode.mnemonic](instruction)
-            
-        //}
+            waiting_ticks = instructions[instruction.opcode.mnemonic](instruction) 
+        }
     }
 
     function fetchInstruction(){
