@@ -154,7 +154,18 @@ export default async function createCPU(pbus){
         'SCF': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'CPL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'CCF': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'JR': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'JR': (instruction) => { 
+            const operands = instruction.opcode.operands
+            const relative = getSourceValue(operands.slice(-1)[0],instruction.parameters)
+            if (operands.length != 1){
+                const condition = operands[0].name
+                const flag = `flag${condition.slice(-1)}`
+                if (! ((registers[flag] && condition.length == 1)||(!registers[flag] && condition.length == 2)))
+                    return instruction.opcode.cycles[1]
+            }
+            registers.PC += relative
+            return instruction.opcode.cycles[0]
+        }, 
         'JP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'CALL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'RET': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
@@ -186,7 +197,13 @@ export default async function createCPU(pbus){
         'SRA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'SWAP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'SRL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'BIT': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'BIT': (instruction) => { 
+            const value = getSourceValue(instruction.opcode.operands[1])
+            const bitshift = parseInt(instruction.opcode.operands[0])
+            setDefaultFlags(instruction.opcode.flags)
+            registers.flagZ = (value & (1 << bitshift) == 0)
+            return instruction.opcode.cycles[0]
+        },
         'RES': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
         'SET': (instruction) => { return instruction.opcode.cycles[0]} //TODO
         
