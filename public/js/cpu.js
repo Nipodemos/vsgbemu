@@ -22,7 +22,7 @@ export default async function createCPU(pbus){
             }
             
         } else {
-            if(Object.keys(registers).includes(operand.name)){
+            if(Object.keys(registers).includes(operand.name) && operand.name.length != 1){
                 let source_value = bus.read(registers[operand.name])
                 if(operand.increment){
                     registers[operand.name]++
@@ -37,6 +37,8 @@ export default async function createCPU(pbus){
                         return bus.read(parameters[0] + 0xff00)
                     case 'a16':
                         return bus.read(parameters[0] | (parameters[1] << 8))
+                    case 'C':
+                        return bus.read(registers.C + 0xff00)
                 }
             }
         }
@@ -46,7 +48,22 @@ export default async function createCPU(pbus){
         if(operand.immediate){
             registers[operand.name] = value
         } else {
-            let address = registers[operand.name]
+            let address = 0
+            if(Object.keys(registers).includes(operand.name) && operand.name.length != 1) {
+                address = registers[operand.name]
+            } else {
+                switch(operand.name) {
+                    case 'a8':
+                        address = parameters[0] + 0xff00
+                        break
+                    case 'a16':
+                        address =  parameters[0] | (parameters[1] << 8)
+                        break
+                    case 'C':
+                        address =  registers.C + 0xff00
+                        break
+                }
+            }
             if(operand.increment){
                 registers[operand.name]++
             }
@@ -58,31 +75,20 @@ export default async function createCPU(pbus){
     }
 
     function setDefaultFlags(flags) {
-        let { Z, N, H, C } = flags
-        if (Z == '0'){
-            registers.flagZ = false
+        const flagNames = Object.keys(flags)
+        for ( let i = 0 ; i < flagNames.length; i++ ) {
+            let flag = flags[flagNames[i]]
+            let flagValue = parseInt(flag)
+            if ( ! isNaN(flagValue) ) {
+                registers[`flag${flagNames[i]}`] = ( flagValue == 1 )
+            }
         }
-        if (Z == '1'){
-            registers.flagZ = true
-        }
-        if (N == '0'){
-            registers.flagN = false
-        }
-        if (N == '1'){
-            registers.flagN = true
-        }
-        if (H == '0'){
-            registers.flagH= false
-        }
-        if (H == '1'){
-            registers.flagH = true
-        }
-        if (C == '0'){
-            registers.flagC= false
-        }
-        if (C== '1'){
-            registers.flagC = true
-        }
+    }
+
+    function checkCondition(operand) {
+        const condition = operand.name
+        const flag = `flag${condition.slice(-1)}`
+        return ((registers[flag] && condition.length == 1)||(!registers[flag] && condition.length == 2))
     }
 
     const instructions = {
@@ -112,12 +118,12 @@ export default async function createCPU(pbus){
             registers.flagZ = ( registers.A == 0 )
             return instruction.opcode.cycles[0]
         },
-        'CP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'CP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'ADD': (instruction) => {
-            let source_value = getSourceValue(instruction.opcode.operands[0], instruction.parameters)
+            let source_value = getSourceValue(instruction.opcode.operands[1], instruction.parameters)
             registers.A += source_value 
             setDefaultFlags(instruction.opcode.flags)
-            //TODO flags
+            //TODO flags && ADD SP
             return instruction.opcode.cycles[0]
         },
         'ADC': (instruction) => {
@@ -149,54 +155,52 @@ export default async function createCPU(pbus){
             ime = false
             return instruction.opcode.cycles[0]
         },
-        'LDH': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'DAA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SCF': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'CPL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'CCF': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'LDH': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'DAA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SCF': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'CPL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'CCF': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'JR': (instruction) => { 
             const operands = instruction.opcode.operands
             const relative = getSourceValue(operands.slice(-1)[0],instruction.parameters)
             if (operands.length != 1){
-                const condition = operands[0].name
-                const flag = `flag${condition.slice(-1)}`
-                if (! ((registers[flag] && condition.length == 1)||(!registers[flag] && condition.length == 2)))
+                if (! checkCondition(operands[0]))
                     return instruction.opcode.cycles[1]
             }
             registers.PC += relative
             return instruction.opcode.cycles[0]
         }, 
-        'JP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'CALL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RET': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RETI': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'JP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'CALL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RET': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RETI': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'RST': (instruction) => { 
             let pc = parceInst(instruction.opcode.operands[0].slice(0,-1))
             registers.pc = pc
             return instruction.opcode.cycles[0]
         },
-        'NOP': (instruction) => { return instruction.opcode.cycles[0]},
+        'NOP': (instruction) => { return instruction.opcode.cycles[0] },
         'STOP': (instruction) => { 
             stop = true
             return instruction.opcode.cycles[0]
         },
-        'HALT': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'INC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'DEC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'PUSH': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'POP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RLCA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RRCA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RLA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RRA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RLC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RRC': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'RR': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SLA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SRA': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SWAP': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SRL': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
+        'HALT': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'INC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'DEC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'PUSH': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'POP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RLCA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RRCA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RLA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RRA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RLC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RRC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'RR': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SLA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SRA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SWAP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SRL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'BIT': (instruction) => { 
             const value = getSourceValue(instruction.opcode.operands[1])
             const bitshift = parseInt(instruction.opcode.operands[0])
@@ -204,8 +208,8 @@ export default async function createCPU(pbus){
             registers.flagZ = (value & (1 << bitshift) == 0)
             return instruction.opcode.cycles[0]
         },
-        'RES': (instruction) => { return instruction.opcode.cycles[0]}, //TODO
-        'SET': (instruction) => { return instruction.opcode.cycles[0]} //TODO
+        'RES': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'SET': (instruction) => { return instruction.opcode.cycles[0] } //TODO
         
     }
 
