@@ -44,7 +44,7 @@ export default async function createCPU(pbus){
         }
     }
 
-    function setSourceValue(operand, value){
+    function setDestinationValue(operand, value){
         if(operand.immediate){
             registers[operand.name] = value
         } else {
@@ -91,10 +91,31 @@ export default async function createCPU(pbus){
         return ((registers[flag] && condition.length == 1)||(!registers[flag] && condition.length == 2))
     }
 
+    function pushByte(value) {
+        value = value & 0xff
+        registers.SP--
+        bus.write(registers.SP, value)
+    }
+
+    function pushWord(value) {
+        pushByte((value >> 8))
+        pushByte(value)
+    }
+
+    function popByte() {
+        let value = bus.read(registers.SP)
+        registers.SP++
+        return value
+    }
+
+    function popWord() {
+        return popByte() | ( popByte() << 8 )
+    }
+
     const instructions = {
         'LD': (instruction) => {
             let source_value = getSourceValue(instruction.opcode.operands[1],instruction.parameters)
-            setSourceValue(instruction.opcode.operands[0], source_value)
+            setDestinationValue(instruction.opcode.operands[0], source_value)
             return instruction.opcode.cycles[0]
         },
         'AND': (instruction) => {
@@ -170,10 +191,43 @@ export default async function createCPU(pbus){
             registers.PC += relative
             return instruction.opcode.cycles[0]
         }, 
-        'JP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'CALL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'RET': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'RETI': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'JP': (instruction) => { 
+            const operands = instruction.opcode.operands
+            const address = getSourceValue(operands.slice(-1)[0],instruction.parameters)
+            if (operands.length != 1){
+                if (! checkCondition(operands[0]))
+                    return instruction.opcode.cycles[1]
+            }
+            registers.PC = address
+            return instruction.opcode.cycles[0]
+        },
+        'CALL': (instruction) => { 
+            const operands = instruction.opcode.operands
+            const address = getSourceValue(operands.slice(-1)[0],instruction.parameters)
+            if (operands.length != 1){
+                if (! checkCondition(operands[0]))
+                    return instruction.opcode.cycles[1]
+            }
+            pushWord(registers.PC)
+            registers.PC = address
+            return instruction.opcode.cycles[0] 
+        }, 
+        'RET': (instruction) => { 
+            const operands = instruction.opcode.operands
+            if (operands.length != 0){
+                if (! checkCondition(operands[0]))
+                    return instruction.opcode.cycles[1]
+            }
+            let address = popWord()
+            registers.PC = address
+            return instruction.opcode.cycles[0]  
+        },
+        'RETI': (instruction) => { 
+            let address = popWord()
+            ime = true
+            registers.PC = address
+            return instruction.opcode.cycles[0] 
+        }, 
         'RST': (instruction) => { 
             let pc = parceInst(instruction.opcode.operands[0].slice(0,-1))
             registers.pc = pc
@@ -187,8 +241,16 @@ export default async function createCPU(pbus){
         'HALT': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'INC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'DEC': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'PUSH': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'POP': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'PUSH': (instruction) => { 
+            const source_value = getSourceValue(instruction.opcode.operands[0])
+            pushWord(source_value)
+            return instruction.opcode.cycles[0] 
+        },
+        'POP': (instruction) => { 
+            const value = popWord()
+            setDestinationValue(instruction.opcode.operands[0], value)
+            return instruction.opcode.cycles[0] 
+        },
         'RLCA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'RRCA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'RLA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
@@ -208,8 +270,18 @@ export default async function createCPU(pbus){
             registers.flagZ = (value & (1 << bitshift) == 0)
             return instruction.opcode.cycles[0]
         },
-        'RES': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'SET': (instruction) => { return instruction.opcode.cycles[0] } //TODO
+        'RES': (instruction) => { 
+            let source_value = getSourceValue(instruction.opcode.operands[1])
+            let bit = parseInt(instruction.opcode.operands[0])
+            setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - ( 1 << bit )) )
+            return instruction.opcode.cycles[0]
+         }, 
+        'SET': (instruction) => { 
+            let source_value = getSourceValue(instruction.opcode.operands[1])
+            let bit = parseInt(instruction.opcode.operands[0])
+            setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - ( 1 << bit )) )
+            return instruction.opcode.cycles[0] 
+        }
         
     }
 
