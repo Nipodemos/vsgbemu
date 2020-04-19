@@ -138,7 +138,14 @@ export default async function createCPU (pbus) {
       registers.flagZ = (registers.A === 0)
       return instruction.opcode.cycles[0]
     },
-    CP: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    CP: (instruction) => {
+      const value = registers.A - getSourceValue(instruction.opcode.operands[0])
+      setDefaultFlags(instruction.opcode.flags)
+      registers.flagZ = value === 0
+      registers.flagC = value > registers.A
+      registers.flagH = (value & 0xf) > (registers.A & 0xf)
+      return instruction.opcode.cycles[0]
+    },
     ADD: (instruction) => {
       const source_value = getSourceValue(instruction.opcode.operands[1], instruction.parameters)
       registers.A += source_value
@@ -209,7 +216,11 @@ export default async function createCPU (pbus) {
       registers.A = registers.A ^ 0xff
       return instruction.opcode.cycles[0]
     },
-    CCF: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    CCF: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+      registers.flagC = !registers.flagC
+      return instruction.opcode.cycles[0]
+    },
     JR: (instruction) => {
       const operands = instruction.opcode.operands
       const relative = getSourceValue(operands.slice(-1)[0], instruction.parameters)
@@ -264,8 +275,34 @@ export default async function createCPU (pbus) {
       return instruction.opcode.cycles[0]
     },
     HALT: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    INC: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    DEC: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    INC: (instruction) => {
+      const operand = instruction.opcode.operands[0]
+      let value = getSourceValue(operand)
+      value++
+      if (!(operand.name.length === 2 && operand.immediate)) {
+        setDefaultFlags(instruction.opcode.flags)
+        setDestinationValue(operand, value & 0xff)
+        registers.flagZ = (value & 0xff) === 0
+        registers.flagH = (value & 0xf) === 0
+      } else {
+        setDestinationValue(operand, value & 0xffff)
+      }
+      return instruction.opcode.cycles[0]
+    },
+    DEC: (instruction) => {
+      const operand = instruction.opcode.operands[0]
+      let value = getSourceValue(operand)
+      value--
+      if (!(operand.name.length === 2 && operand.immediate)) {
+        setDefaultFlags(instruction.opcode.flags)
+        setDestinationValue(operand, value & 0xff)
+        registers.flagZ = (value & 0xff) === 0
+        registers.flagH = (value & 0xf) === 0xf
+      } else {
+        setDestinationValue(operand, value & 0xffff)
+      }
+      return instruction.opcode.cycles[0]
+    },
     PUSH: (instruction) => {
       const source_value = getSourceValue(instruction.opcode.operands[0])
       pushWord(source_value)
@@ -425,6 +462,7 @@ export default async function createCPU (pbus) {
     }
   }
 
+  let stop = false
   let ime = true
   const halt = false
   let waiting_ticks = 0
