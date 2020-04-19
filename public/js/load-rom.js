@@ -1,22 +1,21 @@
-export default function loadRom(file) {
+export default function loadRom (file) {
+  const rom = new Uint8Array(file)
 
-    const rom = new Uint8Array(file)
+  function accept (address) {
+    return address >= 0 && address < 0x8000
+  }
 
-    function accept(address) {
-        return address >= 0 && address < 0x8000
-    }
+  function read (address) {
+    return rom[address]
+  }
 
-    function read(address) {
-        return rom[address]
-    }
+  function write (address, value) {
+    // Do nothing
+  }
 
-    function write(address, value){
-        // Do nothing
-    }
-
-    return {
-        accept,
-        write,
-        read
-    }
+  return {
+    accept,
+    write,
+    read
+  }
 }
