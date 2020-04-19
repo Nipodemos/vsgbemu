@@ -357,7 +357,14 @@ export default async function createCPU (pbus) {
     RR: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     SLA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     SRA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    SWAP: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    SWAP: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+      let value = getSourceValue(instruction.opcode.operands[0])
+      value = ((value << 4) & 0xff) | (value >> 4)
+      registers.flagZ = value === 0
+      setDestinationValue(instruction.opcode.operands[0], value)
+      return instruction.opcode.cycles[0]
+    },
     SRL: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     BIT: (instruction) => {
       const value = getSourceValue(instruction.opcode.operands[1])
