@@ -176,10 +176,48 @@ export default async function createCPU(pbus){
             ime = false
             return instruction.opcode.cycles[0]
         },
-        'LDH': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'DAA': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'SCF': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
-        'CPL': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
+        'LDH': (instruction) => { 
+            const operands = instruction.opcode.operands
+            if (operands[0].immediate){
+                bus.write(0xff00 + instruction.parameters[0], registers.A)
+            } else {
+                registers.A = bus.read(0xff00 + instruction.parameters[0])
+            }
+            return instruction.opcode.cycles[0] 
+        },
+        'DAA': (instruction) => { 
+            let temp = registers.A
+            if (registers.flagN) {
+                if ( registers.flagH )
+                    temp = (temp - 0x06) & 0xff
+                if ( registers.flagC )
+                    temp = (temp - 0x60) & 0xff
+            } else {
+                if ( registers.flagH || (temp & 0x0f) > 0x09 )
+                    temp += 0x06
+                if ( registers.flagC || temp > 0x9f )
+                    temp += 0x60
+            }
+            registers.flagH = false
+            if ( temp > 0xff )
+                registers.flagC = true
+            temp &= 0xff
+            if ( temp == 0 )
+                registers.flagZ = true
+            else
+                registers.flagZ = false
+            registers.A = temp
+            return instruction.opcode.cycles[0] 
+        },
+        'SCF': (instruction) => { 
+            setDefaultFlags(instruction.opcode.flags)
+            return instruction.opcode.cycles[0] 
+        },
+        'CPL': (instruction) => { 
+            setDefaultFlags(instruction.opcode.flags)
+            registers.A = registers.A ^ 0xff
+            return instruction.opcode.cycles[0] 
+        },
         'CCF': (instruction) => { return instruction.opcode.cycles[0] }, //TODO
         'JR': (instruction) => { 
             const operands = instruction.opcode.operands
