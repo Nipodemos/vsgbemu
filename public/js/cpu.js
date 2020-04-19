@@ -43,7 +43,7 @@ export default async function createCPU (pbus) {
     }
   }
 
-  function setDestinationValue (operand, value) {
+  function setDestinationValue (operand, value, parameters) {
     if (operand.immediate) {
       registers[operand.name] = value
     } else {
@@ -114,7 +114,7 @@ export default async function createCPU (pbus) {
   const instructions = {
     LD: (instruction) => {
       const source_value = getSourceValue(instruction.opcode.operands[1], instruction.parameters)
-      setDestinationValue(instruction.opcode.operands[0], source_value)
+      setDestinationValue(instruction.opcode.operands[0], source_value, instruction.parameters)
       return instruction.opcode.cycles[0]
     },
     AND: (instruction) => {
@@ -273,15 +273,49 @@ export default async function createCPU (pbus) {
     },
     POP: (instruction) => {
       const value = popWord()
-      setDestinationValue(instruction.opcode.operands[0], value)
+      setDestinationValue(instruction.opcode.operands[0], value, instruction.parameters)
       return instruction.opcode.cycles[0]
     },
-    RLCA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    RRCA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    RLCA: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+
+      const bit_out = ((registers.A & 0b10000000) === 0b10000000 ? 1 : 0)
+      registers.flagC = bit_out === 1
+      registers.flagZ = ((registers.A << 1) & 0xff) + bit_out === 0x00
+
+      registers.A = ((registers.A << 1) & 0xff) + bit_out
+      return instruction.opcode.cycles[0]
+    },
+    RRCA: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+
+      const bit_out = ((registers.A & 0b10000000) === 0b10000000 ? 0b10000000 : 0)
+      registers.flagC = bit_out === 0b10000000
+      registers.flagZ = ((registers.A >> 1) & 0xff) + bit_out === 0x00
+      registers.A = (registers.A >> 1) + bit_out
+      return instruction.opcode.cycles[0]
+    },
     RLA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     RRA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    RLC: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
-    RRC: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
+    RLC: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+      const value = getSourceValue(instruction.opcode.operands[0])
+      const bit_out = ((value & 0b10000000) === 0b10000000 ? 0b00000001 : 0)
+      registers.flagC = bit_out === 1
+      registers.flagZ = ((value << 1) & 0xff) + bit_out === 0x00
+
+      setDestinationValue(instruction.opcode.operands[0], ((value << 1) & 0xff) + bit_out)
+      return instruction.opcode.cycles[0]
+    },
+    RRC: (instruction) => {
+      setDefaultFlags(instruction.opcode.flags)
+      const value = getSourceValue(instruction.opcode.operands[0])
+      const bit_out = ((value & 0b10000000) === 0b10000000 ? 0b10000000 : 0)
+      registers.flagC = bit_out === 0b10000000
+      registers.flagZ = ((value >> 1) & 0xff) + bit_out === 0x00
+      setDestinationValue(instruction.opcode.operands[0], (value >> 1) + bit_out)
+      return instruction.opcode.cycles[0]
+    },
     RL: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     RR: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     SLA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
@@ -298,13 +332,13 @@ export default async function createCPU (pbus) {
     RES: (instruction) => {
       const source_value = getSourceValue(instruction.opcode.operands[1])
       const bit = parseInt(instruction.opcode.operands[0])
-      setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - (1 << bit)))
+      setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - (1 << bit)), instruction.parameters)
       return instruction.opcode.cycles[0]
     },
     SET: (instruction) => {
       const source_value = getSourceValue(instruction.opcode.operands[1])
       const bit = parseInt(instruction.opcode.operands[0])
-      setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - (1 << bit)))
+      setDestinationValue(instruction.opcode.operands[1], source_value & (0xff - (1 << bit)), instruction.parameters)
       return instruction.opcode.cycles[0]
     }
 
