@@ -334,7 +334,7 @@ export default async function createCPU (pbus) {
     },
     RLA: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.flagC ? registers.flagC : 0
+      const carry = registers.flagC ? 1 : 0
       registers.C = ((registers.A & 0x80) === 0x80)
       const result = ((registers.A << 1) & 0xff) + carry
       registers.flagZ = (result & 0xFF === 0x0)
@@ -344,7 +344,7 @@ export default async function createCPU (pbus) {
     },
     RRA: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.flagC ? registers.flagC : 0
+      const carry = registers.flagC ? 1 : 0
       registers.flagZ = ((registers.A >> 1) + carry === 0)
       registers.A = (registers.A >> 1) + carry
 
@@ -371,7 +371,7 @@ export default async function createCPU (pbus) {
     },
     RL: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.flagC ? registers.flagC : 0
+      const carry = registers.flagC ? 1 : 0
       const value = getSourceValue(instruction.opcode.operands[0])
       registers.C = ((value & 0x80) === 0x80)
       const result = ((value << 1) & 0xff) + carry
@@ -382,7 +382,7 @@ export default async function createCPU (pbus) {
     },
     RR: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.flagC ? registers.flagC : 0
+      const carry = registers.flagC ? 1 : 0
       const value = getSourceValue(instruction.opcode.operands[0])
       registers.flagZ = ((value >> 1) + carry === 0)
 
