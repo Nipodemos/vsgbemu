@@ -297,22 +297,22 @@ export default async function createCPU (pbus) {
     },
     RLA: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.C ? registers.C : 0
+      const carry = registers.flagC ? registers.flagC : 0
       registers.C = ((registers.A & 0x80) === 0x80)
       const result = ((registers.A << 1) & 0xff) + carry
-      registers.Z = (result & 0xFF === 0x0)
+      registers.flagZ = (result & 0xFF === 0x0)
       registers.A = result
 
       return instruction.opcode.cycles[0]
-    }, // TODO
+    },
     RRA: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.C ? registers.C : 0
-      registers.Z = ((registers.A >> 1) + carry === 0)
+      const carry = registers.flagC ? registers.flagC : 0
+      registers.flagZ = ((registers.A >> 1) + carry === 0)
       registers.A = (registers.A >> 1) + carry
 
       return instruction.opcode.cycles[0]
-    }, // TODO
+    },
     RLC: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
       const value = getSourceValue(instruction.opcode.operands[0])
@@ -334,25 +334,25 @@ export default async function createCPU (pbus) {
     },
     RL: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.C ? registers.C : 0
+      const carry = registers.flagC ? registers.flagC : 0
       const value = getSourceValue(instruction.opcode.operands[0])
       registers.C = ((value & 0x80) === 0x80)
       const result = ((value << 1) & 0xff) + carry
-      registers.Z = (result & 0xFF === 0x0)
+      registers.flagZ = (result & 0xFF === 0x0)
       setDestinationValue(instruction.opcode.operands[0], result)
 
       return instruction.opcode.cycles[0]
-    }, // TODO
+    },
     RR: (instruction) => {
       setDefaultFlags(instruction.opcode.flags)
-      const carry = registers.C ? registers.C : 0
+      const carry = registers.flagC ? registers.flagC : 0
       const value = getSourceValue(instruction.opcode.operands[0])
-      registers.Z = ((value >> 1) + carry === 0)
+      registers.flagZ = ((value >> 1) + carry === 0)
 
       setDestinationValue(instruction.opcode.operands[0], (value >> 1) + carry)
 
       return instruction.opcode.cycles[0]
-    }, // TODO
+    },
     SLA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     SRA: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
     SWAP: (instruction) => { return instruction.opcode.cycles[0] }, // TODO
